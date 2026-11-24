@@ -1,6 +1,6 @@
 Propostas para o projeto final da UC de linguagem de descrição de hardware
 Integrantes: Matheus e Luís
-Ideia 1: Acionamento bidirecional e controle de velocidade de motor CC com encoder em FPGA
+Ideia 1: Acionamento bidirecional e medição de velocidade de motor CC com encoder em FPGA
 Materiais utilizados:
 1) Motor JGB37-520 de 12 V com encoder,
 2) Ponte H L298N,
