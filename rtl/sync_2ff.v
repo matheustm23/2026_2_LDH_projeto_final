@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// ============================================================
+// ===========================================================
 // Arquivo  : sync_2ff.v
 // Item     : 1 - Inversao do sentido de rotacao (modulo compartilhado)
 // Autor    : Matheus

@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// ============================================================
+// ===========================================================
 // Arquivo  : fsm_sentido.v
 // Item     : 1 - Inversao do sentido de rotacao
 // Autor    : Matheus

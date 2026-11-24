@@ -1,4 +1,4 @@
-# ============================================================
+# ===========================================================
 # Arquivo  : sim_fsm_sentido.do
 # Item     : 1 - Inversao do sentido de rotacao
 # Descricao: Script do ModelSim para simular o fsm_sentido.
