@@ -127,13 +127,76 @@ module DE10_LITE_Golden_Top(
 //  REG/WIRE declarations
 //=======================================================
 
+wire clk;           // clock de 50 MHz (unico clock do projeto)
+wire rst;           // reset sincrono, ativo em 1 (SW9 sincronizada)
 
-
+// Item 1 - fsm_sentido
+wire dir;           // sentido aplicado: 1 = horario, 0 = anti-horario
+wire pwm_en;        // 0 durante a pausa de troca de sentido
+wire troca;         // 1 durante a pausa de troca de sentido
+wire in1;           // L298N IN1
+wire in2;           // L298N IN2
 
 //=======================================================
 //  Structural coding
 //=======================================================
 
+assign clk = MAX10_CLK1_50;
 
+// ------------------------------------------------------
+// Reset: SW9 passa pelo sincronizador de 2 flip-flops
+// ------------------------------------------------------
+sync_2ff #(.WIDTH(1)) u_sync_rst (
+	.clk (clk),
+	.d   (SW[9]),
+	.q   (rst)
+);
+
+// ------------------------------------------------------
+// Item 1: inversao do sentido de rotacao (SW0)
+// ------------------------------------------------------
+fsm_sentido #(.PAUSA_CICLOS(25_000_000)) u_fsm_sentido (   // 0,5 s @ 50 MHz
+	.clk    (clk),
+	.rst    (rst),
+	.sw_dir (SW[0]),
+	.dir    (dir),
+	.pwm_en (pwm_en),
+	.troca  (troca),
+	.in1    (in1),
+	.in2    (in2)
+);
+
+// ------------------------------------------------------
+// Ponte H L298N (header GPIO)
+// ------------------------------------------------------
+assign GPIO[0] = pwm_en;            // ENA - TEMP: substituir pelo pwm do pwm_gen no item 3
+assign GPIO[1] = in1;               // IN1
+assign GPIO[2] = in2;               // IN2
+
+// Encoder: entradas, ficam em alta impedancia (lidas no item 4)
+assign GPIO[3] = 1'bz;              // canal A
+assign GPIO[4] = 1'bz;              // canal B
+
+// Demais pinos do GPIO sem uso
+assign GPIO[35:5] = {31{1'bz}};
+
+// ------------------------------------------------------
+// LEDs - TEMP: passam para o display_ctrl no item 6
+// ------------------------------------------------------
+assign LEDR[0]   = dir;             // sentido horario
+assign LEDR[1]   = ~dir;            // sentido anti-horario
+assign LEDR[2]   = troca;           // pausa de troca em andamento
+assign LEDR[9:3] = 7'b0;
+
+// ------------------------------------------------------
+// Displays apagados (segmentos ativos em 0)
+// TEMP: substituir pelo display_ctrl no item 6
+// ------------------------------------------------------
+assign HEX0 = 8'hFF;
+assign HEX1 = 8'hFF;
+assign HEX2 = 8'hFF;
+assign HEX3 = 8'hFF;
+assign HEX4 = 8'hFF;
+assign HEX5 = 8'hFF;
 
 endmodule
