@@ -40,6 +40,7 @@ A DE10-Lite comanda um motor JGB37-520 (12 V, 60 RPM) por uma ponte H L298N. A c
 | LEDR0 / LEDR1 | | sentido horário / anti-horário |
 | LEDR2 | | pausa de troca de sentido em andamento |
 | LEDR9..LEDR3 | | setpoint em binário (provisório até o item 6) |
+| LEDR9..LEDR3 | | setpoint em binário (provisório até o item 6) |
 | HEX0..HEX5 | | RPM ou setpoint (item 6) |
 
 O GND da fonte, da L298N e da DE10-Lite precisa ser comum (pino 12 ou 30 do header).
