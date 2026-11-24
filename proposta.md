@@ -5,7 +5,7 @@ Materiais utilizados:
 1) Motor JGB37-520 de 12 V com encoder,
 2) Ponte H L298N,
 3) Fonte externa de 12 V,
-4) FPG4 DE10Lite
+4) FPGA DE10Lite
 Obs: estamos usando esse motor e ponte H na UC de Atividade de Extensão 2.
 Descrição das funcionalidades:
 1) Inversão do sentido de rotação por uma chave da placa (SW0). Ao inverter, uma FSM zera o
