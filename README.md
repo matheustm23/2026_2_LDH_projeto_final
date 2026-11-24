@@ -10,7 +10,7 @@ A DE10-Lite comanda um motor JGB37-520 (12 V, 60 RPM) por uma ponte H L298N. A c
 | Item | Função | Responsável | Status |
 |---|---|---|---|
 | 1 | FSM de inversão de sentido (SW0, pausa de 0,5 s) | Matheus | concluído |
-| 2 | Ajuste do setpoint por KEY1/KEY0 (debounce e borda) | Luís | pendente |
+| 2 | Ajuste do setpoint por KEY1/KEY0 (debounce e borda) | Luís | concluído |
 | 3 | Gerador de PWM para o ENA da L298N | Matheus | pendente |
 | 4 | Leitura do encoder (sincronizador 2 FF, decodificação x4) | Luís | pendente |
 | 5 | Medição de velocidade em RPM | Matheus | pendente |
@@ -39,6 +39,7 @@ A DE10-Lite comanda um motor JGB37-520 (12 V, 60 RPM) por uma ponte H L298N. A c
 | Alimentação do encoder | pino 29 (3,3 V) e pino 30 (GND) | os pinos da FPGA só aceitam 3,3 V |
 | LEDR0 / LEDR1 | | sentido horário / anti-horário |
 | LEDR2 | | pausa de troca de sentido em andamento |
+| LEDR9..LEDR3 | | setpoint em binário (provisório até o item 6) |
 | HEX0..HEX5 | | RPM ou setpoint (item 6) |
 
 O GND da fonte, da L298N e da DE10-Lite precisa ser comum (pino 12 ou 30 do header).
@@ -46,6 +47,8 @@ O GND da fonte, da L298N e da DE10-Lite precisa ser comum (pino 12 ou 30 do head
 ## Funcionamento atual
 
 - **Item 1:** ao mudar a SW0, o ENA vai a 0 e o LEDR2 acende por 0,5 s. Depois o sentido troca (IN1/IN2) e o ENA volta a 1. Até o item 3 entrar, o motor gira a 100 %. Se a chave voltar à posição original durante a pausa, o sentido não muda.
+- **Item 2:** cada toque em KEY1 soma 5 % ao setpoint e cada toque em KEY0 tira 5 %, entre 0 e 100 %. Os botões passam por sincronizador, debounce de 10 ms e detector de borda: segurar o botão conta um passo só. Até o item 6 entrar, o setpoint aparece em binário nos LEDR9..LEDR3 (100 % = 1100100).
+- Depois de gravar a placa, liga e desliga a SW9 uma vez para garantir o reset.
 
 ## Estrutura
 
@@ -55,13 +58,17 @@ O GND da fonte, da L298N e da DE10-Lite precisa ser comum (pino 12 ou 30 do head
 ├── proposta.md                           # proposta entregue ao professor
 ├── rtl/                                  # modulos Verilog
 │   ├── sync_2ff.v                        # sincronizador de 2 flip-flops
-│   └── fsm_sentido.v                     # item 1
+│   ├── fsm_sentido.v                     # item 1
+│   ├── debounce.v                        # filtro de repique (item 2)
+│   └── setpoint_ctrl.v                   # item 2
 └── tb/                                   # testbenches e scripts do ModelSim
     ├── tb_fsm_sentido.v
-    └── sim_fsm_sentido.do
+    ├── sim_fsm_sentido.do
+    ├── tb_setpoint_ctrl.v
+    └── sim_setpoint_ctrl.do
 ```
 
 ## Como compilar e simular
 
 - **Quartus Prime 18.1:** abrir `2026_2_LDH_projeto_final.qpf`, compilar (Ctrl+L) e gravar a placa pelo Programmer.
-- **ModelSim:** em File > Change Directory, escolher a pasta `tb/` e rodar `do sim_fsm_sentido.do` no console. O testbench imprime `PASS` ou `FAIL` no final.
+- **ModelSim:** em File > Change Directory, escolher a pasta `tb/` e rodar o script do módulo no console (`do sim_fsm_sentido.do`, `do sim_setpoint_ctrl.do`). O testbench imprime `PASS` ou `FAIL` no final.
