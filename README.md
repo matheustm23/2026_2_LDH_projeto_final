@@ -12,7 +12,7 @@ A DE10-Lite comanda um motor JGB37-520 (12 V, 60 RPM) por uma ponte H L298N. A c
 | 1 | FSM de inversão de sentido (SW0, pausa de 0,5 s) | Matheus | concluído |
 | 2 | Ajuste do setpoint por KEY1/KEY0 (debounce e borda) | Luís | concluído |
 | 3 | Gerador de PWM para o ENA da L298N | Matheus | concluído |
-| 4 | Leitura do encoder (sincronizador 2 FF, decodificação x4) | Luís | pendente |
+| 4 | Leitura do encoder (sincronizador 2 FF, decodificação x4) | Luís | concluído |
 | 5 | Medição de velocidade em RPM | Matheus | pendente |
 | 6 | Displays de 7 segmentos (RPM ou setpoint) e LEDs | Luís | pendente |
 
@@ -34,14 +34,13 @@ A DE10-Lite comanda um motor JGB37-520 (12 V, 60 RPM) por uma ponte H L298N. A c
 | ENA (PWM) | GPIO[0], pino 1 do header | saída para a L298N |
 | IN1 | GPIO[1], pino 2 | saída para a L298N |
 | IN2 | GPIO[2], pino 3 | saída para a L298N |
-| Encoder A | GPIO[3], pino 4 | entrada (item 4) |
-| Encoder B | GPIO[4], pino 5 | entrada (item 4) |
+| Encoder A | GPIO[3], pino 4 | entrada, pull-up fraco ligado |
+| Encoder B | GPIO[4], pino 5 | entrada, pull-up fraco ligado |
 | Alimentação do encoder | pino 29 (3,3 V) e pino 30 (GND) | os pinos da FPGA só aceitam 3,3 V |
 | LEDR0 / LEDR1 | | sentido horário / anti-horário |
 | LEDR2 | | pausa de troca de sentido em andamento |
 | LEDR9..LEDR3 | | setpoint em binário (provisório até o item 6) |
-| LEDR9..LEDR3 | | setpoint em binário (provisório até o item 6) |
-| HEX0..HEX5 | | RPM ou setpoint (item 6) |
+| HEX5..HEX0 | | posição do encoder em hexadecimal (provisório até o item 6) |
 
 O GND da fonte, da L298N e da DE10-Lite precisa ser comum (pino 12 ou 30 do header).
 
@@ -50,7 +49,21 @@ O GND da fonte, da L298N e da DE10-Lite precisa ser comum (pino 12 ou 30 do head
 - **Item 1:** ao mudar a SW0, o ENA vai a 0 e o LEDR2 acende por 0,5 s. Depois o sentido troca (IN1/IN2) e o PWM volta. Se a chave voltar à posição original durante a pausa, o sentido não muda.
 - **Item 2:** cada toque em KEY1 soma 5 % ao setpoint e cada toque em KEY0 tira 5 %, entre 0 e 100 %. Os botões passam por sincronizador, debounce de 10 ms e detector de borda: segurar o botão conta um passo só. Até o item 6 entrar, o setpoint aparece em binário nos LEDR9..LEDR3 (100 % = 1100100).
 - **Item 3:** o ENA recebe um PWM de 1 kHz com resolução de 1 % (100 passos por período), seguindo o setpoint do item 2. O duty novo só vale a partir do período seguinte, então mudar o setpoint não gera pulso cortado. Durante a pausa de troca de sentido o PWM fica em 0 e, quando volta, começa um período inteiro. Com setpoint baixo (abaixo de uns 20 a 30 %) o motor pode não ter força para girar, o que é normal.
+- **Item 4:** os canais A e B do encoder passam por sincronizador de 2 flip-flops e por um filtro de ruído de 1 µs (rejeita pulsos curtos induzidos pelo PWM do motor). Cada borda dos dois canais conta uma unidade (decodificação x4): 44 contagens por volta do eixo do motor. A posição soma no sentido horário e subtrai no anti-horário. Até o item 6 entrar, a posição aparece em hexadecimal nos displays (HEX5..HEX0), para a calibração abaixo. Valores negativos aparecem em complemento de 2 (FFFFxx).
 - Depois de gravar a placa, liga e desliga a SW9 uma vez para garantir o reset.
+
+## Calibração do encoder (CPR_SAIDA)
+
+A etiqueta do motor não informa a redução, então o número de contagens por volta do eixo de saída (`CPR_SAIDA`, usado no item 5) é medido assim:
+
+1. Com o setpoint em 0 (motor parado), marca o eixo de saída com um pedaço de fita e liga/desliga a SW9: os displays mostram `000000`.
+2. Gira o eixo de saída exatamente **10 voltas** no sentido horário, olhando de frente para o eixo. Se a caixa de redução estiver dura demais para girar à mão, liga o motor com setpoint baixo, conta as voltas pela fita, desliga a fonte de 12 V perto da 10ª volta e ajusta à mão até a fita voltar à marca (o encoder continua contando, porque é alimentado pela placa).
+3. Converte o número dos displays de hexadecimal para decimal e divide por 10.
+4. O resultado deve ficar perto de 44 × redução. Exemplos: 1:90 → 3960 (10 voltas = `009AB0`); 1:168 → 7392 (10 voltas = `0120C0`). Usar o valor exato 44 × redução da redução encontrada.
+
+Para conferir o sentido: com a SW0 em 1 (LEDR0 aceso) e o motor girando, a posição tem que **subir**. Se descer, troca `INVERTE` para `1'b1` na instância `u_encoder_x4` do topo.
+
+**CPR_SAIDA medido:** a preencher depois do teste na placa.
 
 ## Estrutura
 
@@ -64,17 +77,23 @@ O GND da fonte, da L298N e da DE10-Lite precisa ser comum (pino 12 ou 30 do head
 │   ├── fsm_sentido.v                     # item 1
 │   ├── debounce.v                        # filtro de repique (item 2)
 │   ├── setpoint_ctrl.v                   # item 2
-│   └── pwm_gen.v                         # item 3
+│   ├── pwm_gen.v                         # item 3
+│   ├── encoder_x4.v                      # item 4
+│   └── hex7seg.v                         # decodificador de display (itens 4 e 6)
 └── tb/                                   # testbenches e scripts do ModelSim
     ├── tb_fsm_sentido.v
     ├── sim_fsm_sentido.do
     ├── tb_setpoint_ctrl.v
     ├── sim_setpoint_ctrl.do
     ├── tb_pwm_gen.v
-    └── sim_pwm_gen.do
+    ├── sim_pwm_gen.do
+    ├── tb_encoder_x4.v
+    ├── sim_encoder_x4.do
+    ├── tb_hex7seg.v
+    └── sim_hex7seg.do
 ```
 
 ## Como compilar e simular
 
 - **Quartus Prime 18.1:** abrir `2026_2_LDH_projeto_final.qpf`, compilar (Ctrl+L) e gravar a placa pelo Programmer.
-- **ModelSim:** em File > Change Directory, escolher a pasta `tb/` e rodar o script do módulo no console (`do sim_fsm_sentido.do`, `do sim_setpoint_ctrl.do`, `do sim_pwm_gen.do`). O testbench imprime `PASS` ou `FAIL` no final.
+- **ModelSim:** em File > Change Directory, escolher a pasta `tb/` e rodar o script do módulo no console (`do sim_fsm_sentido.do`, `do sim_setpoint_ctrl.do`, `do sim_pwm_gen.do`, `do sim_encoder_x4.do`, `do sim_hex7seg.do`). O testbench imprime `PASS` ou `FAIL` no final.
