@@ -150,6 +150,11 @@ wire        enc_dir;        // sentido medido: 1 = horario (usado no item 6)
 wire [31:0] enc_pos;        // posicao acumulada (calibracao do CPR)
 wire [6:0]  seg0, seg1, seg2, seg3, seg4, seg5;   // segmentos dos displays (TEMP)
 
+// Item 5 - rpm_meter
+wire [13:0] rpm_x10;        // RPM x 10 (523 = 52,3 RPM)
+wire        rpm_valid;      // pulso a cada atualizacao (~6,6 por segundo)
+wire [23:0] valor_display;  // valor mostrado nos displays (TEMP)
+
 //=======================================================
 //  Structural coding
 //=======================================================
@@ -217,6 +222,18 @@ encoder_x4 #(.FILTRO_CICLOS(50), .INVERTE(1'b0)) u_encoder_x4 (   // 50 ciclos =
 );
 
 // ------------------------------------------------------
+// Item 5: medicao de velocidade (janela em que a contagem = RPM x 10)
+// CPR_SAIDA = 3960 e provisorio: ajustar depois da calibracao (README)
+// ------------------------------------------------------
+rpm_meter #(.CLK_HZ(50_000_000), .CPR_SAIDA(3960)) u_rpm_meter (
+	.clk       (clk),
+	.rst       (rst),
+	.step      (enc_step),
+	.rpm_x10   (rpm_x10),
+	.rpm_valid (rpm_valid)
+);
+
+// ------------------------------------------------------
 // Ponte H L298N (header GPIO)
 // ------------------------------------------------------
 assign GPIO[0] = pwm;               // ENA
@@ -239,16 +256,19 @@ assign LEDR[2]   = troca;           // pausa de troca em andamento
 assign LEDR[9:3] = duty;            // setpoint em binario (LEDR3 = bit 0)
 
 // ------------------------------------------------------
-// Displays: posicao do encoder em hexadecimal (24 bits)
-// TEMP: usado na calibracao do CPR; substituir pelo
+// Displays em hexadecimal - TEMP: substituir pelo
 // display_ctrl no item 6
+//   SW1 = 0 -> posicao do encoder (calibracao do CPR)
+//   SW1 = 1 -> RPM x 10 (ex.: 523 = 0x20B = 52,3 RPM)
 // ------------------------------------------------------
-hex7seg u_hex0 (.hex(enc_pos[3:0]),   .seg(seg0));
-hex7seg u_hex1 (.hex(enc_pos[7:4]),   .seg(seg1));
-hex7seg u_hex2 (.hex(enc_pos[11:8]),  .seg(seg2));
-hex7seg u_hex3 (.hex(enc_pos[15:12]), .seg(seg3));
-hex7seg u_hex4 (.hex(enc_pos[19:16]), .seg(seg4));
-hex7seg u_hex5 (.hex(enc_pos[23:20]), .seg(seg5));
+assign valor_display = SW[1] ? {10'd0, rpm_x10} : enc_pos[23:0];
+
+hex7seg u_hex0 (.hex(valor_display[3:0]),   .seg(seg0));
+hex7seg u_hex1 (.hex(valor_display[7:4]),   .seg(seg1));
+hex7seg u_hex2 (.hex(valor_display[11:8]),  .seg(seg2));
+hex7seg u_hex3 (.hex(valor_display[15:12]), .seg(seg3));
+hex7seg u_hex4 (.hex(valor_display[19:16]), .seg(seg4));
+hex7seg u_hex5 (.hex(valor_display[23:20]), .seg(seg5));
 
 assign HEX0 = {1'b1, seg0};         // bit 7 = ponto decimal (apagado)
 assign HEX1 = {1'b1, seg1};
